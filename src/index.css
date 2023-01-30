@@ -1,0 +1,23 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Roboto", sans-serif;
+}
+
+.input:focus {
+  outline: none;
+  border: none;
+}
+.input::placeholder {
+  font-size: 10px;
+  color: #ccc;
+}
+.input:focus::placeholder {
+  color: #000;
+}
+.input__label {
+  font-size: 10px;
+  color: #ccc;
+  margin-bottom: 5px;
+}
