@@ -34,18 +34,19 @@ const ModalComponent = ({
   billingList,
   setLoading = () => {},
 }) => {
+  const [load, setLoad] = useState(false);
   const initialState = {
     name: "",
     email: "",
     phone: "",
-    payable: "",
+    // payable: "",
   };
   useEffect(() => {
     if (type === "edit") {
       dispatch({ type: "name", payload: data.name });
       dispatch({ type: "email", payload: data.email });
       dispatch({ type: "phone", payload: data.phone });
-      dispatch({ type: "payable", payload: data.payable });
+      // dispatch({ type: "payable", payload: data.payable });
     }
   }, [data]);
 
@@ -66,8 +67,8 @@ const ModalComponent = ({
           ...state,
           phone: action.payload,
         };
-      case "payable":
-        return { ...state, payable: action.payload };
+      // case "payable":
+      //   return { ...state, payable: action.payload };
       default:
         return state;
     }
@@ -78,72 +79,156 @@ const ModalComponent = ({
   const { userProfile } = useProfile();
   const { setTotalAmount } = useCount();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault();
-    if (
-      state.name === "" ||
-      state.email === "" ||
-      state.phone === "" ||
-      state.payable === ""
-    ) {
-      alert("Please fill all the fields");
-      return;
-    }
-    if (state.phone.length !== 11) {
-      alert("Please enter a valid phone number");
-      return;
-    }
-    if (type === "add") {
-      setLoading(true);
-      if (userProfile.token) {
-        setBillingList((prev) => [...prev, state]);
-        handleClose();
+    setLoad(true);
+    // if (
+    //   state.name === "" ||
+    //   state.email === "" ||
+    //   state.phone === "" ||
+    //   state.payable === ""
+    // ) {
+    //   alert("Please fill all the fields");
+    //   return;
+    // }
+    // if (state.phone.length !== 11) {
+    //   alert("Please enter a valid phone number");
+    //   return;
+    // }
+    // console.log(state);
 
-        addBillings(state)
-          .then((res) => {
-            if (res.data) {
-              getBillings(page, pageSize).then((res) => {
-                setBillingList(res.data);
-              });
-              getAllBillings().then((res) => {
-                const current = res.data.reduce((a, b) => a + b.payable, 0);
-                setTotalAmount(current);
-              });
+    // upload all the files in imgbb
+    // then get the url and save it in the database
 
-              setLoading(false);
-            }
-          })
-          .catch((err) => {
-            setLoading(true);
+    const apiKey = "c8818fe821c0aee81ebf0b77344f0e2b";
+    const apiUrl = "https://api.imgbb.com/1/upload";
 
-            handleClose();
-            // for testing purposes that it is working propoerly
-            setTimeout(() => {
-              alert(err + " " + "The request failed, please try again");
-              setLoading(false);
-              getBillings(page, pageSize).then((res) => {
-                setBillingList(res.data);
-              });
-            }, 2000);
-          });
+    let promises = [];
+
+    for (const key in state) {
+      const formData = new FormData();
+      formData.append("key", apiKey);
+      if (Object.hasOwnProperty.call(state, key)) {
+        formData.append("image", state[key]);
       }
-      return;
+      const options = {
+        method: "POST",
+        body: formData,
+      };
+
+      promises.push(
+        fetch(apiUrl, options).then((response) => {
+          if (!response.ok) {
+            throw new Error(
+              `HTTP error! status: ${response.status} with key ${key}`
+            );
+          }
+          return [response, key];
+        })
+      );
     }
-    if (type === "edit" && userProfile.token) {
-      updateBilling(data._id, state).then((res) => {
-        console.log(res);
 
-        getBillings(page, pageSize).then((res) => {
-          setBillingList(res.data);
-        });
-        getAllBillings().then((res) => {
-          const current = res.data.reduce((a, b) => a + b.payable, 0);
+    let savedImages = [];
 
-          setTotalAmount(current);
+    Promise.all(promises)
+      .then((results) => {
+        results.forEach(([response, key]) => {
+          response
+            .json()
+            .then((result) => {
+              // send the all the urls with key to the database
+
+              savedImages.push({ [key]: result.data.url });
+              if (savedImages.length === promises.length) {
+                console.log(savedImages);
+              }
+            })
+            .catch((error) => {
+              console.error(`Error parsing JSON for image ${key}: ${error}`);
+            });
         });
-        handleClose();
+      })
+      .catch((error) => alert(error.message))
+      .finally(() => {
+        // check promise.all is done or not
+        if (savedImages.length === promises.length) {
+          // when all the images are uploaded
+          // save the data in the database
+
+          console.log(savedImages);
+        }
+        // if done then save the data in the database
+        console.log(savedImages.length);
       });
-    }
+
+    // Promise.all(promises)
+    //   .then((responses) =>
+    //     Promise.all(responses.map((response) => response.json()))
+    //   )
+    //   .then((results) => console.log(results))
+    //   .catch((error) => console.error(error));
+    // const options = {
+    //   method: "POST",
+    //   body: formData,
+    // };
+
+    // fetch(apiUrl, options)
+    //   .then((response) => response.json())
+    //   .then((result) => console.log(result))
+    //   .catch((error) => console.error(error));
+    // see the form data here
+
+    // if (type === "add") {
+    //   setLoading(true);
+    //   if (userProfile.token) {
+    //     setBillingList((prev) => [...prev, state]);
+    //     handleClose();
+
+    //     addBillings(state)
+    //       .then((res) => {
+    //         if (res.data) {
+    //           getBillings(page, pageSize).then((res) => {
+    //             setBillingList(res.data);
+    //           });
+    //           getAllBillings().then((res) => {
+    //             const current = res.data.reduce((a, b) => a + b.payable, 0);
+    //             setTotalAmount(current);
+    //           });
+
+    //           setLoading(false);
+    //         }
+    //       })
+    //       .catch((err) => {
+    //         setLoading(true);
+
+    //         handleClose();
+    //         // for testing purposes that it is working propoerly
+    //         setTimeout(() => {
+    //           alert(err + " " + "The request failed, please try again");
+    //           setLoading(false);
+    //           getBillings(page, pageSize).then((res) => {
+    //             setBillingList(res.data);
+    //           });
+    //         }, 2000);
+    //       });
+    //   }
+    //   return;
+    // }
+    // if (type === "edit" && userProfile.token) {
+    //   updateBilling(data._id, state).then((res) => {
+    //     console.log(res);
+
+    //     getBillings(page, pageSize).then((res) => {
+    //       setBillingList(res.data);
+    //     });
+    //     getAllBillings().then((res) => {
+    //       const current = res.data.reduce((a, b) => a + b.payable, 0);
+
+    //       setTotalAmount(current);
+    //     });
+    //     handleClose();
+    //   });
+    // }
   };
   return (
     <React.Fragment>
@@ -184,7 +269,7 @@ const ModalComponent = ({
                   Full Name
                 </Typography>
                 <TextField
-                  type="text"
+                  type="file"
                   id="outlined-basic"
                   variant="outlined"
                   fullWidth
@@ -192,7 +277,7 @@ const ModalComponent = ({
                   defaultValue={type === "edit" ? data.name : ""}
                   required
                   onChange={(e) => {
-                    dispatch({ type: "name", payload: e.target.value });
+                    dispatch({ type: "name", payload: e.target.files[0] });
                   }}
                 />
               </Box>
@@ -209,7 +294,7 @@ const ModalComponent = ({
                   Email
                 </Typography>
                 <TextField
-                  type="email"
+                  type="file"
                   id="outlined-basic"
                   variant="outlined"
                   fullWidth
@@ -217,7 +302,7 @@ const ModalComponent = ({
                   defaultValue={type === "edit" ? data.email : ""}
                   required
                   onChange={(e) => {
-                    dispatch({ type: "email", payload: e.target.value });
+                    dispatch({ type: "email", payload: e.target.files[0] });
                   }}
                 />
               </Box>
@@ -242,7 +327,7 @@ const ModalComponent = ({
                   Phone Number
                 </Typography>
                 <TextField
-                  type="number"
+                  type="file"
                   id="outlined-basic"
                   variant="outlined"
                   fullWidth
@@ -250,7 +335,7 @@ const ModalComponent = ({
                   defaultValue={type === "edit" ? data.phone : ""}
                   required
                   onChange={(e) => {
-                    dispatch({ type: "phone", payload: e.target.value });
+                    dispatch({ type: "phone", payload: e.target.files[0] });
                   }}
                 />
               </Box>
@@ -273,10 +358,10 @@ const ModalComponent = ({
                   fullWidth
                   placeholder="Enter Payable Amount..."
                   defaultValue={type === "edit" ? data.payable : ""}
-                  required
-                  onChange={(e) => {
-                    dispatch({ type: "payable", payload: e.target.value });
-                  }}
+                  // required
+                  // onChange={(e) => {
+                  //   dispatch({ type: "payable", payload: e.target.value });
+                  // }}
                 />
               </Box>
             </Box>
